@@ -981,7 +981,8 @@ body{overflow-x:clip}
       <div id="transcribeArea">
       <div class="card wa-card" id="waCard">
         <div class="wa-top"><span class="wa-ic">💬</span><div class="grow"><h3 style="margin:0">קיבלתם הודעה קולית בוואטסאפ?</h3><div class="muted">שלחו אותה לכאן – ותקבלו אותה כתובה תוך כמה שניות.</div></div>
-          <button class="btn primary wa-btn" id="waPick" type="button">📎 בחירת ההודעה</button></div>
+          <div class="row" style="gap:8px"><button class="btn primary wa-btn" id="waPick" type="button">📎 בחירת ההודעה</button><a class="btn wa-open" id="waOpen" href="whatsapp://" title="פותח את וואטסאפ">🟢 פתיחת וואטסאפ</a></div></div>
+        <div class="wa-quick" id="waQuick"></div>
         <details class="wa-how"><summary>איך שולחים הודעה מוואטסאפ? (לחצו כאן)</summary>
           <ol>
             <li><b>באנדרואיד:</b> קודם מתקינים את קולמוס (כפתור "📲 התקנה" למעלה). אחר כך בוואטסאפ: לחיצה ארוכה על ההודעה הקולית ← <b>שיתוף</b> ← <b>קולמוס</b>. וזהו!</li>
@@ -6304,7 +6305,25 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.se
   const st = document.createElement('style');
   st.textContent = '.wa-card{border:2px solid #25d366;background:linear-gradient(135deg,rgba(37,211,102,.10),transparent);margin-bottom:16px}.wa-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.wa-ic{font-size:2.2em}.wa-btn{background:#25d366!important;border-color:#25d366!important;color:#fff!important;font-size:1.05em;padding:.7em 1.2em}.wa-how{margin-top:.7em}.wa-how summary{cursor:pointer;font-weight:700;color:var(--primary)}.wa-how ol{margin:.5em 0 0;line-height:1.8}';
   document.head.appendChild(st);
-  const b = $('#waPick'); if (b) b.onclick = () => $('#fileInput').click();
+  st.textContent += '.wa-open{border:2px solid #25d366!important;color:#128c4a!important;font-weight:700}.wa-quick{margin-top:.6em;padding:.6em .8em;border-radius:12px;background:rgba(37,211,102,.12);line-height:1.7;font-size:.97em}';
+  const isMob = /Android|iPhone|iPad/i.test(navigator.userAgent), isIOS = /iPhone|iPad/i.test(navigator.userAgent);
+  const q = $('#waQuick');
+  if (q) q.innerHTML = isMob
+    ? (isIOS ? '👆 <b>הכי מהיר:</b> בוואטסאפ – לחיצה ארוכה על ההודעה ← <b>העבר</b> ← סמל השיתוף ← <b>שמירה בקבצים</b>. ואז כאן "📎 בחירת ההודעה".'
+             : '👆 <b>הכי מהיר:</b> בוואטסאפ – לחיצה ארוכה על ההודעה ← <b>שיתוף</b> ← <b>קולמוס</b>. ההודעה נכנסת לכאן לבד! (צריך להתקין את קולמוס פעם אחת – כפתור "📲 התקנה" למעלה)')
+    : '👆 <b>הכי מהיר במחשב:</b> בוואטסאפ – עומדים על ההודעה הקולית ← החץ הקטן שלידה ← <b>הורדה</b>. ואז כאן "📎 בחירת ההודעה" – החלון ייפתח ישר בתיקיית ההורדות, וההודעה תהיה הראשונה. <b>או פשוט גוררים את ההודעה לתוך הדף.</b>';
+  const b = $('#waPick');
+  if (b) b.onclick = async () => {
+    if (!isMob && window.showOpenFilePicker) {
+      try {
+        const hs = await window.showOpenFilePicker({ startIn: 'downloads', multiple: true, id: 'kulmus-wa', types: [{ description: 'הודעות קוליות', accept: { 'audio/*': ['.opus', '.ogg', '.oga', '.m4a', '.mp3', '.wav', '.aac', '.amr', '.webm'], 'video/*': ['.mp4', '.3gp', '.mov'] } }] });
+        const files = await Promise.all(hs.map((x) => x.getFile()));
+        if (files.length) addFiles(files);
+        return;
+      } catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    $('#fileInput').click();
+  };
 })();
 
 /* =========================================================

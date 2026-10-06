@@ -884,6 +884,7 @@ body{overflow-x:clip}
     <div class="auth-feat"><span class="fi">🎙️</span>הקלטה, קובץ או סרטון – ותמלול אוטומטי</div>
     <div class="auth-feat"><span class="fi">📜</span>יידיש – גם ישר לעברית</div>
     <div class="auth-feat"><span class="fi">📅</span>לוח עברי, פרשיות וחיפוש חכם</div>
+    <div class="auth-feat"><span class="fi">💬</span>הודעה קולית מוואטסאפ? הופכים אותה לטקסט בשניות</div>
     <div class="auth-feat"><span class="fi">⬇️</span>Word · PDF · Excel · PowerPoint</div>
     <div class="auth-feat"><span class="fi">🔒</span>פרטי ומאובטח – כל אחד רואה רק את ההקלטות שלו</div>
   </div>
@@ -978,6 +979,16 @@ body{overflow-x:clip}
       <div class="dash" id="homeDash"></div>
       <div id="noTranscribe" class="card hidden" style="border-color:var(--warn);margin-bottom:16px">⚠️ אין לך הרשאה לתמלל הקלטות חדשות. אפשר לצפות בספרייה. לשינוי – פנה למנהל.</div>
       <div id="transcribeArea">
+      <div class="card wa-card" id="waCard">
+        <div class="wa-top"><span class="wa-ic">💬</span><div class="grow"><h3 style="margin:0">קיבלתם הודעה קולית בוואטסאפ?</h3><div class="muted">שלחו אותה לכאן – ותקבלו אותה כתובה תוך כמה שניות.</div></div>
+          <button class="btn primary wa-btn" id="waPick" type="button">📎 בחירת ההודעה</button></div>
+        <details class="wa-how"><summary>איך שולחים הודעה מוואטסאפ? (לחצו כאן)</summary>
+          <ol>
+            <li><b>באנדרואיד:</b> קודם מתקינים את קולמוס (כפתור "📲 התקנה" למעלה). אחר כך בוואטסאפ: לחיצה ארוכה על ההודעה הקולית ← <b>שיתוף</b> ← <b>קולמוס</b>. וזהו!</li>
+            <li><b>באייפון:</b> בוואטסאפ: לחיצה ארוכה על ההודעה ← <b>העבר</b> ← סמל השיתוף ← <b>שמירה בקבצים</b>. אחר כך כאן לוחצים "📎 בחירת ההודעה" ובוחרים אותה.</li>
+            <li><b>במחשב (וואטסאפ ווב):</b> מורידים את ההודעה (חץ ההורדה שלידה), ואז "📎 בחירת ההודעה".</li>
+          </ol></details>
+      </div>
       <div class="row" style="margin-bottom:14px">
         <span style="font-weight:700">🗣️ שפת ההקלטה – באיזו שפה מדברים?</span>
         <div class="lang-pills" id="langPills">
@@ -6287,6 +6298,14 @@ async function pickUpShared() {
   if (location.search.includes('share=')) history.replaceState(null, '', location.pathname);
 }
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch((e) => console.warn('SW registration failed', e));
+
+/* ---- הודעות וואטסאפ ---- */
+(function waCard() {
+  const st = document.createElement('style');
+  st.textContent = '.wa-card{border:2px solid #25d366;background:linear-gradient(135deg,rgba(37,211,102,.10),transparent);margin-bottom:16px}.wa-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.wa-ic{font-size:2.2em}.wa-btn{background:#25d366!important;border-color:#25d366!important;color:#fff!important;font-size:1.05em;padding:.7em 1.2em}.wa-how{margin-top:.7em}.wa-how summary{cursor:pointer;font-weight:700;color:var(--primary)}.wa-how ol{margin:.5em 0 0;line-height:1.8}';
+  document.head.appendChild(st);
+  const b = $('#waPick'); if (b) b.onclick = () => $('#fileInput').click();
+})();
 
 /* =========================================================
    BOOT

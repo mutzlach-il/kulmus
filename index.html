@@ -884,7 +884,6 @@ body{overflow-x:clip}
     <div class="auth-feat"><span class="fi">🎙️</span>הקלטה, קובץ או סרטון – ותמלול אוטומטי</div>
     <div class="auth-feat"><span class="fi">📜</span>יידיש – גם ישר לעברית</div>
     <div class="auth-feat"><span class="fi">📅</span>לוח עברי, פרשיות וחיפוש חכם</div>
-    <div class="auth-feat"><span class="fi">💬</span>הודעה קולית מוואטסאפ? הופכים אותה לטקסט בשניות</div>
     <div class="auth-feat"><span class="fi">⬇️</span>Word · PDF · Excel · PowerPoint</div>
     <div class="auth-feat"><span class="fi">🔒</span>פרטי ומאובטח – כל אחד רואה רק את ההקלטות שלו</div>
   </div>
@@ -979,17 +978,6 @@ body{overflow-x:clip}
       <div class="dash" id="homeDash"></div>
       <div id="noTranscribe" class="card hidden" style="border-color:var(--warn);margin-bottom:16px">⚠️ אין לך הרשאה לתמלל הקלטות חדשות. אפשר לצפות בספרייה. לשינוי – פנה למנהל.</div>
       <div id="transcribeArea">
-      <div class="card wa-card" id="waCard">
-        <div class="wa-top"><span class="wa-ic">💬</span><div class="grow"><h3 style="margin:0">קיבלתם הודעה קולית בוואטסאפ?</h3><div class="muted">שלחו אותה לכאן – ותקבלו אותה כתובה תוך כמה שניות.</div></div>
-          <div class="row" style="gap:8px"><button class="btn primary wa-btn" id="waPick" type="button">📎 בחירת ההודעה</button><a class="btn wa-open" id="waOpen" href="whatsapp://" title="פותח את וואטסאפ">🟢 פתיחת וואטסאפ</a></div></div>
-        <div class="wa-quick" id="waQuick"></div>
-        <details class="wa-how"><summary>איך שולחים הודעה מוואטסאפ? (לחצו כאן)</summary>
-          <ol>
-            <li><b>באנדרואיד:</b> קודם מתקינים את קולמוס (כפתור "📲 התקנה" למעלה). אחר כך בוואטסאפ: לחיצה ארוכה על ההודעה הקולית ← <b>שיתוף</b> ← <b>קולמוס</b>. וזהו!</li>
-            <li><b>באייפון:</b> בוואטסאפ: לחיצה ארוכה על ההודעה ← <b>העבר</b> ← סמל השיתוף ← <b>שמירה בקבצים</b>. אחר כך כאן לוחצים "📎 בחירת ההודעה" ובוחרים אותה.</li>
-            <li><b>במחשב (וואטסאפ ווב):</b> מורידים את ההודעה (חץ ההורדה שלידה), ואז "📎 בחירת ההודעה".</li>
-          </ol></details>
-      </div>
       <div class="row" style="margin-bottom:14px">
         <span style="font-weight:700">🗣️ שפת ההקלטה – באיזו שפה מדברים?</span>
         <div class="lang-pills" id="langPills">
@@ -1002,6 +990,10 @@ body{overflow-x:clip}
         <select id="langSel" class="hidden">
           <option value="he">עברית</option><option value="yi">יידיש</option><option value="en">אנגלית</option><option value="auto">זיהוי אוטומטי</option>
         </select>
+      </div>
+      <div class="row" style="margin-bottom:14px">
+        <span style="font-weight:700">✍️ באיזו שפה לקבל את הטקסט?</span>
+        <div class="lang-pills" id="outPills"><button data-out="same">🔁 כמו בהקלטה</button><button data-out="he">🇮🇱 עברית</button><button data-out="yi">📜 יידיש</button><button data-out="en">🇺🇸 אנגלית</button></div>
       </div>
       <div class="row" style="margin-bottom:14px">
         <span style="font-weight:700">📁 לאיזו תיקייה לשמור?</span>
@@ -2309,7 +2301,9 @@ async function fillGaps(audio, segs, lang, engine, onProgress, opts = {}) {
   let gaps; try { gaps = findGaps(segs, audio); } catch (e) { console.warn('gap scan failed', e); return segs; }
   if (!gaps.length) return segs;
   const all = segs.slice(); let filled = 0;
+  const gapDeadline = Date.now() + 90000;
   for (let k = 0; k < gaps.length; k++) {
+    if (Date.now() > gapDeadline) break;
     const [a, b] = gaps[k]; const st = Math.max(0, a - 1), en = Math.min(audio.duration, b + 1);
     onProgress && onProgress(`🔎 בודק שלא פוספס כלום… (${k + 1}/${gaps.length} · מילא ${filled} קטעים)`);
     const wav = encodeWav(boostSamples(await resampleMono16k(audio, st, en)));
@@ -2318,7 +2312,7 @@ async function fillGaps(audio, segs, lang, engine, onProgress, opts = {}) {
     const order = engine === 'gemini' ? (opts.out === 'he' ? [tryGem] : [tryGem, tryWh]) : [tryWh, tryGem];
     let got = [];
     for (const fn of order) {
-      try { got = (await fn()).filter((x) => x.text && !HALLU_RE.test(x.text.trim()) && !/^\[.*\]$/.test(x.text.trim())); }
+      try { got = (await Promise.race([fn(), sleep(35000).then(() => [])])).filter((x) => x.text && !HALLU_RE.test(x.text.trim()) && !/^\[.*\]$/.test(x.text.trim())); }
       catch (e) { if (e.status === 403) throw e; console.warn('gap fill failed', e.message); got = []; }
       if (got.length) break;
     }
@@ -2404,9 +2398,9 @@ const Queue = {
     const when = meta.recDate ? new Date(meta.recDate + 'T12:00:00').getTime() : Date.now();
     const rec = {
       id, owner: ME.id, title: title || (name ? name.replace(/\.[^.]+$/, '') : 'הקלטה'), fileName: name || 'recording', mime: blob.type || '', size: blob.size,
-      lang, yiOut: lang === 'yi' ? LS.get('yiOut', 'both') : null, createdAt: Date.now(), duration: 0, folderId: meta.folderId !== undefined ? meta.folderId : ($('#upFolder').value || null), tags: [], text: '', segments: [], summary: '', translations: {}, status: 'queued', error: '', filePath: null,
+      lang, yiOut: lang === 'yi' ? (LS.get('outLang', 'same') === 'he' ? 'he' : 'yi') : null, createdAt: Date.now(), duration: 0, folderId: meta.folderId !== undefined ? meta.folderId : ($('#upFolder').value || null), tags: [], text: '', segments: [], summary: '', translations: {}, status: 'queued', error: '', filePath: null,
       speaker: meta.speaker || null, category: meta.category || null, parasha: meta.parasha || parshaFor(when) || null, hyear: meta.hyear || hebYearOf(when) || null, occasion: meta.occasion || holidayOf(when) || null, recDate: meta.recDate || null,
-      series: meta.series || null, seriesNo: meta.seriesNo ? +meta.seriesNo : null, extras: meta.prep ? { prep: meta.prep } : {}
+      series: meta.series || null, seriesNo: meta.seriesNo ? +meta.seriesNo : null, extras: Object.assign(meta.prep ? { prep: meta.prep } : {}, { outLang: LS.get('outLang', 'same') })
     };
     const { error } = await sb.from('recordings').insert({ id, owner: ME.id, title: rec.title, file_name: rec.fileName, mime: rec.mime, size: rec.size, lang, yi_out: rec.yiOut, folder_id: rec.folderId, status: 'queued',
       speaker: rec.speaker, category: rec.category, parasha: rec.parasha, hyear: rec.hyear, occasion: rec.occasion, rec_date: rec.recDate, series: rec.series, series_no: rec.seriesNo, extras: rec.extras });
@@ -2472,6 +2466,15 @@ const Queue = {
           const res = await transcribeBlob(blob, rec.fileName, rec.lang, prog, opts);
           rec.text = res.text; rec.segments = res.segments; rec.duration = res.duration || seconds || rec.duration;
           rec.outLang = opts.out || rec.lang; rec.edited = false;
+          { const want = rec.extras && rec.extras.outLang;
+            if (want && want !== 'same' && want !== rec.outLang && res.text && LANG_EN[want]) {
+              prog('מתרגם ל' + LANGS[want] + '…');
+              try {
+                const src = res.segments && res.segments.length ? res.segments.map((x) => x.text).join('\n') : res.text;
+                const t = await geminiTranslateText(src, want).catch(() => translateText(src, want));
+                if (t) rec.translations = Object.assign({}, rec.translations, { [want]: t });
+              } catch (e) { console.warn('out translate failed', e); }
+            } }
           if (rec.lang === 'yi' && rec.yiOut === 'both' && res.text && perm('translate')) {
             prog('מתרגם לעברית…');
             try {
@@ -5765,10 +5768,12 @@ async function repairHoles(blob, res, lang, onProgress, opts) {
   // שומרים על המכסה החינמית: עד 40% מההקלטה או 30 חלונות
   let budget = Math.max(90, total * 0.4); holes = holes.filter((h) => { if (budget <= 0) return false; budget -= (h.e - h.s); return true; }).slice(0, 30);
   let segs = res.segments.slice();
+  const repDeadline = Date.now() + 75000;
   for (let i = 0; i < holes.length; i++) {
+    if (Date.now() > repDeadline) break;
     const h = holes[i];
     onProgress && onProgress(`משלים קטעים לא ברורים ${i + 1} מתוך ${holes.length}…`);
-    const fill = await transcribeHole(audio, h, lang, opts);
+    const fill = await Promise.race([transcribeHole(audio, h, lang, opts), sleep(35000).then(() => [])]);
     segs = segs.filter((g) => !((g.start >= h.s - 0.2 && g.end <= h.e + 0.2) || (HALLU_RE.test(g.text || '') && g.start < h.e && g.end > h.s)));
     segs = segs.concat(fill);
   }
@@ -6300,31 +6305,17 @@ async function pickUpShared() {
 }
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch((e) => console.warn('SW registration failed', e));
 
-/* ---- הודעות וואטסאפ ---- */
-(function waCard() {
-  const st = document.createElement('style');
-  st.textContent = '.wa-card{border:2px solid #25d366;background:linear-gradient(135deg,rgba(37,211,102,.10),transparent);margin-bottom:16px}.wa-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.wa-ic{font-size:2.2em}.wa-btn{background:#25d366!important;border-color:#25d366!important;color:#fff!important;font-size:1.05em;padding:.7em 1.2em}.wa-how{margin-top:.7em}.wa-how summary{cursor:pointer;font-weight:700;color:var(--primary)}.wa-how ol{margin:.5em 0 0;line-height:1.8}';
-  document.head.appendChild(st);
-  st.textContent += '.wa-open{border:2px solid #25d366!important;color:#128c4a!important;font-weight:700}.wa-quick{margin-top:.6em;padding:.6em .8em;border-radius:12px;background:rgba(37,211,102,.12);line-height:1.7;font-size:.97em}';
-  const isMob = /Android|iPhone|iPad/i.test(navigator.userAgent), isIOS = /iPhone|iPad/i.test(navigator.userAgent);
-  const q = $('#waQuick');
-  if (q) q.innerHTML = isMob
-    ? (isIOS ? '👆 <b>הכי מהיר:</b> בוואטסאפ – לחיצה ארוכה על ההודעה ← <b>העבר</b> ← סמל השיתוף ← <b>שמירה בקבצים</b>. ואז כאן "📎 בחירת ההודעה".'
-             : '👆 <b>הכי מהיר:</b> בוואטסאפ – לחיצה ארוכה על ההודעה ← <b>שיתוף</b> ← <b>קולמוס</b>. ההודעה נכנסת לכאן לבד! (צריך להתקין את קולמוס פעם אחת – כפתור "📲 התקנה" למעלה)')
-    : '👆 <b>הכי מהיר במחשב:</b> בוואטסאפ – עומדים על ההודעה הקולית ← החץ הקטן שלידה ← <b>הורדה</b>. ואז כאן "📎 בחירת ההודעה" – החלון ייפתח ישר בתיקיית ההורדות, וההודעה תהיה הראשונה. <b>או פשוט גוררים את ההודעה לתוך הדף.</b>';
-  const b = $('#waPick');
-  if (b) b.onclick = async () => {
-    if (!isMob && window.showOpenFilePicker) {
-      try {
-        const hs = await window.showOpenFilePicker({ startIn: 'downloads', multiple: true, id: 'kulmus-wa', types: [{ description: 'הודעות קוליות', accept: { 'audio/*': ['.opus', '.ogg', '.oga', '.m4a', '.mp3', '.wav', '.aac', '.amr', '.webm'], 'video/*': ['.mp4', '.3gp', '.mov'] } }] });
-        const files = await Promise.all(hs.map((x) => x.getFile()));
-        if (files.length) addFiles(files);
-        return;
-      } catch (e) { if (e && e.name === 'AbortError') return; }
-    }
-    $('#fileInput').click();
-  };
+/* ---- שפת הטקסט שמקבלים ---- */
+(function outLangUi() {
+  const yp = $('#yiOutPills'); if (yp) yp.style.display = 'none';
+  const sync = () => { const v = LS.get('outLang', 'same'); $$('#outPills button').forEach((b) => b.classList.toggle('active', b.dataset.out === v)); };
+  const op = $('#outPills'); if (op) op.addEventListener('click', (e) => { const b = e.target.closest('[data-out]'); if (!b) return; LS.set('outLang', b.dataset.out); sync(); });
+  sync();
 })();
+{ const _loK = logout; logout = async function (...a) {
+    if (!a[0] && (Queue.running || Queue.items.length) && !(await confirmBox('יש הקלטה שעדיין מתמללת. אם תצא עכשיו – התמלול ייעצר באמצע (הוא ימשיך כשתיכנס שוב). לצאת בכל זאת?', 'כן, לצאת'))) return;
+    return _loK.apply(this, a);
+  }; }
 
 /* =========================================================
    BOOT
